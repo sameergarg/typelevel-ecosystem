@@ -22,8 +22,10 @@ val fs2Dependencies = Seq(
 )
 
 val http4sDependencies = Seq(
-  "org.http4s" % "http4s-core_2.12" % "0.18.11"
-)
+  "org.http4s" %% "http4s-dsl",
+  "org.http4s" %% "http4s-blaze-server",
+  "org.http4s" %% "http4s-blaze-client"
+).map(_  % "0.18.11")
 
 
 val doobieVersion = "0.5.3"
@@ -38,11 +40,23 @@ val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.0.5" % "test"
 )
 
+val loggingDependencies = Seq(
+  "ch.qos.logback"              % "logback-classic" % "1.2.3",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
+)
+
 lazy val root = (project in file("."))
   .enablePlugins()
   .settings(
     commonSettings,
     name := "typelevel-ecosystem",
-    libraryDependencies ++= catsDependencies ++ circeeDependencies ++ fs2Dependencies ++ doobieDependencies ++ testDependencies,
+    libraryDependencies ++=
+      loggingDependencies ++
+      catsDependencies ++
+      circeeDependencies ++
+      fs2Dependencies ++
+      doobieDependencies ++
+      http4sDependencies ++
+      testDependencies,
     scalacOptions+= "-Ypartial-unification"
   )
