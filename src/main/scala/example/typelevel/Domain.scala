@@ -2,6 +2,7 @@ package example.typelevel
 
 object Domain {
   case class Greeting(content: String)
+  case class Person(name: String, age: Int)
 
   sealed trait ServiceError
 

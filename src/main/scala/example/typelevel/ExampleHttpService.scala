@@ -4,10 +4,11 @@ import cats.Monad
 import cats.data.Validated.{Invalid, Valid}
 import cats.effect._
 import cats.implicits._
-import example.typelevel.Domain.Greeting
+import example.typelevel.Domain.{Greeting, Person}
+import io.circe.Decoder
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.http4s.HttpService
+import org.http4s.{EntityDecoder, HttpService}
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 
@@ -31,6 +32,19 @@ class ExampleHttpService[F[_]: Effect] extends Http4sDsl[F] {
 
   val apiService: HttpService[F] = HttpService {
     case GET -> Root / "ping" => Ok("pong")
+  }
+
+  implicit def decoders[F[_]: Sync, A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
+
+  val personService: HttpService[F] = HttpService {
+    case req @ POST -> Root =>
+      val result = for {
+        person <- req.as[Person]
+      } yield person
+
+      result.flatMap { r =>
+        Ok(r.asJson)
+      }
   }
 
 }
