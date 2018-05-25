@@ -5,6 +5,7 @@ import cats.data.Validated.{Invalid, Valid}
 import cats.effect._
 import cats.implicits._
 import example.typelevel.Domain.{Greeting, Person}
+import example.typelevel.Repository.InMemoryPersonRepositoryInterpreter
 import io.circe.Decoder
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -14,7 +15,7 @@ import org.http4s.dsl.Http4sDsl
 
 import scala.language.higherKinds
 
-class ExampleHttpService[F[_]: Effect] extends Http4sDsl[F] {
+class ExampleHttpService[F[_]: Effect](personRepository: InMemoryPersonRepositoryInterpreter[F]) extends Http4sDsl[F] {
 
   val helloWorldService: HttpService[F] = HttpService {
     case GET -> Root / "hello" / name => {
@@ -37,9 +38,18 @@ class ExampleHttpService[F[_]: Effect] extends Http4sDsl[F] {
   implicit def decoders[F[_]: Sync, A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
 
   val personService: HttpService[F] = HttpService {
+    case GET        -> Root / name =>
+      val existingPerson = for {
+        //TODO add validation
+        p <- personRepository.find(name)
+      } yield p
+
+      existingPerson.flatMap {person => person.fold(NotFound(s"No person with name $name"))(p => Ok(p.asJson))}
+
     case req @ POST -> Root =>
       val result = for {
         person <- req.as[Person]
+        _      <- personRepository.save(person)
       } yield person
 
       result.flatMap { r =>
