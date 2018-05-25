@@ -1,7 +1,6 @@
 package example.typelevel
 
 import cats.effect.IO
-import example.typelevel.ExampleHttpService._
 
 import fs2.{Stream, StreamApp}
 
@@ -12,10 +11,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 
 object Main extends StreamApp[IO] {
+  val exampleHttpService = new ExampleHttpService[IO]
   override def stream(args: List[String], requestShutdown: IO[Unit]): Stream[IO, ExitCode] =
     BlazeBuilder[IO]
       .bindHttp(8080, "localhost")
-      .mountService(helloWorldService, "/")
-      .mountService(apiService, "/api")
+      .mountService(exampleHttpService.helloWorldService, "/")
+      .mountService(exampleHttpService.apiService, "/api")
       .serve
 }
