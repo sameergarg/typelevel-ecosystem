@@ -18,5 +18,6 @@ object Main extends StreamApp[IO] {
       .mountService(exampleHttpService.helloWorldService, "/")
       .mountService(exampleHttpService.apiService, "/api")
       .mountService(exampleHttpService.personService, "/person")
+      .mountService(new NumberToWordsService[IO].numberToWords, "/number")
       .serve
 }
