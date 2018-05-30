@@ -6,10 +6,11 @@ import cats.effect._
 import cats.implicits._
 import example.typelevel.Domain.{Greeting, Person}
 import example.typelevel.Repository.InMemoryPersonRepositoryInterpreter
+import example.typelevel.ServiceValidator.ValidationResult
 import io.circe.Decoder
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.http4s.{EntityDecoder, HttpService}
+import org.http4s.{EntityDecoder, HttpService, Response}
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 
@@ -39,12 +40,13 @@ class ExampleHttpService[F[_]: Effect](personRepository: InMemoryPersonRepositor
 
   val personService: HttpService[F] = HttpService {
     case GET        -> Root / name =>
-      val existingPerson = for {
-        //TODO add validation
-        p <- personRepository.find(name)
-      } yield p
-
-      existingPerson.flatMap {person => person.fold(NotFound(s"No person with name $name"))(p => Ok(p.asJson))}
+      val response =
+        (for {
+        validName <- Monad[F].pure(ServiceValidator.validateHelloRequest(name))
+        p <- personRepository.find(validName.getOrElse(""))
+        res = p.fold(error => NotFound(error.toString), per => Ok(per.asJson))
+      } yield res).flatten
+      response
 
     case req @ POST -> Root =>
       val result = for {

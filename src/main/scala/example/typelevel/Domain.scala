@@ -9,5 +9,6 @@ object Domain {
   object ServiceError {
     case object EmptyValue extends ServiceError
     case object DoesNotStartWithCapitalLetter extends ServiceError
+    case class PersonDoesNotExist(name: String) extends ServiceError
   }
 }
