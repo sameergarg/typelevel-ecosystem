@@ -14,6 +14,7 @@ lazy val circeeDep = Seq(
 val catsDep = Seq(
   "org.typelevel" %% "cats-core" % "1.0.1",
   "org.typelevel" %% "cats-effect" % "1.0.0-RC",
+  "org.typelevel" %% "cats-mtl-core" % "0.2.1"
 )
 
 val fs2Dep = Seq(

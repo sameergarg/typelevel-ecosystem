@@ -3,13 +3,15 @@ package example.typelevel
 import cats.Monad
 import cats.effect.Effect
 import cats.implicits._
-import example.typelevel.NumberConversionError.{InWordsConversionFailure, NotANumber}
+import cats.mtl.FunctorRaise
+import cats.mtl.implicits._
+import example.typelevel.NumberConversionError.{OutOfRange, NotANumber, NumberConversionResult}
 import org.http4s.HttpService
 import org.http4s.dsl.Http4sDsl
 
 import scala.util.Try
 
-class NumberToWordsService[F[_]: Effect] extends Http4sDsl[F] {
+class NumberToWordsService[F[_] : Effect : NumberConversionResult] extends Http4sDsl[F] {
 
   val mappedNumbers = Map(
     0 -> "Zero",
@@ -27,19 +29,25 @@ class NumberToWordsService[F[_]: Effect] extends Http4sDsl[F] {
   val numberToWords: HttpService[F] = HttpService {
     case GET -> Root / n => {
 
-      val inWordsE: F[Either[NumberConversionError, String]] = inWordsProgram(n)
-
-      inWordsE.flatMap(_.fold(error => BadRequest(s"Unable to convert $error"), inWords => Ok(inWords)))
+      val inWords = inWordsProgram(n)
+      inWords.flatMap {Ok(_)}
+    }.handleErrorWith {
+      case e: Exception => BadRequest(e.toString)
     }
   }
 
   private def inWordsProgram(n: String) = {
-    val parseToInt = Try(n.toInt).toEither.left.map[NumberConversionError](_ => NotANumber(n))
-    val mapToWords: Either[NumberConversionError, Int] => Either[NumberConversionError, String] = number => number.map(parsedNumber => mappedNumbers.get(parsedNumber).getOrElse("Some large number"))
+
+    val notANumber: String => F[Int] = str => (NotANumber(str): Exception).raise[F, Int]
+    val parseToInt = Try(n.toInt).map(Monad[F].pure(_)).getOrElse(notANumber(n))
+
+    val outOfRange: Int => F[String] = number => (OutOfRange(number): Exception).raise[F, String]
+    val mapToWords: Int => F[String] = number => mappedNumbers.get(number).map(Monad[F].pure(_)).getOrElse(outOfRange(number))
+
 
     val inWordsE = for {
-      number <- Monad[F].pure(parseToInt)
-      inWords <- Monad[F].pure(mapToWords(number))
+      number <- parseToInt
+      inWords <- mapToWords(number)
     } yield inWords
     inWordsE
   }
@@ -48,8 +56,15 @@ class NumberToWordsService[F[_]: Effect] extends Http4sDsl[F] {
 sealed trait NumberConversionError extends Exception
 
 object NumberConversionError {
-  case class NotANumber(str: String) extends NumberConversionError
-  case class InWordsConversionFailure(number: Int) extends NumberConversionError
+  type NumberConversionResult[F[_]] = FunctorRaise[F, Exception]
+
+  case class NotANumber(str: String) extends NumberConversionError {
+    override def toString: String = s"$str cannot be parsed to number"
+  }
+
+  case class OutOfRange(number: Int) extends NumberConversionError {
+    override def toString: String = s"$number is too large to be converted to words"
+  }
 
 
 }
